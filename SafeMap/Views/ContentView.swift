@@ -8,30 +8,18 @@ struct ContentView: View {
         center: CLLocationCoordinate2D(latitude: 40.95, longitude: 29.13),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
     )
-    // Hardcoded region data for MVP
-    let regions: [Region] = [
-        Region(
-            name: "Gümüşpınar",
-            city: "İstanbul",
-            district: "Kartal",
-            score: 68,
-            colorHex: "#FF9900",
-            news: [
-                NewsItem(title: "Gümüşpınar’da silahlı çatışma paniği", date: "2025-07-10", severity: "high", link: nil),
-                NewsItem(title: "İstanbul Kartal’da hırsızlık artışı", date: "2025-06-30", severity: "medium", link: nil)
-            ]
-        ),
-        Region(
-            name: "Koşuyolu",
-            city: "İstanbul",
-            district: "Kadıköy",
-            score: 90,
-            colorHex: "#00CC66",
-            news: [
-                NewsItem(title: "Koşuyolu’nda huzurlu yaz akşamı", date: "2025-07-01", severity: "low", link: nil)
-            ]
-        )
-    ]
+    @State private var regions: [Region] = []
+    @State private var polygons: [NamedPolygon] = []
+    
+    var filteredRegions: [Region] {
+        if searchText.isEmpty { return regions }
+        return regions.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.city.localizedCaseInsensitiveContains(searchText) ||
+            $0.district.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
     var body: some View {
         NavigationView {
             VStack {
@@ -43,7 +31,7 @@ struct ContentView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding([.leading, .trailing])
                 Spacer()
-                MapView(regions: regions, selectedRegion: $selectedRegion, mapRegion: $mapRegion)
+                MapView(polygons: polygons, regions: filteredRegions, selectedRegion: $selectedRegion, mapRegion: $mapRegion)
                     .frame(height: 350)
                 Spacer()
             }
@@ -51,12 +39,49 @@ struct ContentView: View {
                 RegionDetailView(region: region)
             }
             .navigationBarHidden(true)
+            .onAppear {
+                loadRegionsAndPolygons()
+            }
+        }
+    }
+    
+    func loadRegionsAndPolygons() {
+        // GeoJSON'dan polygonları oku
+        if let url = Bundle.main.url(forResource: "regions", withExtension: "geojson"),
+           let data = try? Data(contentsOf: url),
+           let geo = try? JSONDecoder().decode(GeoJSON.self, from: data) {
+            var tempPolygons: [NamedPolygon] = []
+            var tempRegions: [Region] = []
+            for feature in geo.features {
+                guard let coords = feature.geometry.coordinates.first else { continue }
+                let polygonCoords = coords.map { CLLocationCoordinate2D(latitude: $0[1], longitude: $0[0]) }
+                let polygon = NamedPolygon(coordinates: polygonCoords, count: polygonCoords.count)
+                polygon.name = feature.properties.name
+                tempPolygons.append(polygon)
+                // Örnek skor ve haberler (ileride API'den gelecek)
+                let score = feature.properties.name == "Gümüşpınar" ? 68 : 90
+                let news: [NewsItem] = feature.properties.name == "Gümüşpınar" ? [
+                    NewsItem(title: "Gümüşpınar’da silahlı çatışma paniği", date: "2025-07-10", severity: "high", link: nil),
+                    NewsItem(title: "İstanbul Kartal’da hırsızlık artışı", date: "2025-06-30", severity: "medium", link: nil)
+                ] : [
+                    NewsItem(title: "Koşuyolu’nda huzurlu yaz akşamı", date: "2025-07-01", severity: "low", link: nil)
+                ]
+                let region = Region(name: feature.properties.name, city: feature.properties.city, district: feature.properties.district, score: score, news: news)
+                tempRegions.append(region)
+            }
+            self.polygons = tempPolygons
+            self.regions = tempRegions
         }
     }
 }
 
-// MapView SwiftUI wrapper
+// MARK: - MapKit Wrapper
+struct NamedPolygon: MKPolygon {
+    var name: String?
+}
+
 struct MapView: UIViewRepresentable {
+    let polygons: [NamedPolygon]
     let regions: [Region]
     @Binding var selectedRegion: Region?
     @Binding var mapRegion: MKCoordinateRegion
@@ -65,12 +90,7 @@ struct MapView: UIViewRepresentable {
         let mapView = MKMapView(frame: .zero)
         mapView.delegate = context.coordinator
         mapView.setRegion(mapRegion, animated: false)
-        // Add polygons
-        for region in regions {
-            if let polygon = regionPolygon(for: region) {
-                mapView.addOverlay(polygon)
-            }
-        }
+        mapView.addOverlays(polygons)
         return mapView
     }
     
@@ -82,60 +102,42 @@ struct MapView: UIViewRepresentable {
         Coordinator(self)
     }
     
-    // Example: create polygon for hardcoded regions
-    func regionPolygon(for region: Region) -> MKPolygon? {
-        if region.name == "Gümüşpınar" {
-            let coords = [
-                CLLocationCoordinate2D(latitude: 40.900, longitude: 29.200),
-                CLLocationCoordinate2D(latitude: 40.900, longitude: 29.210),
-                CLLocationCoordinate2D(latitude: 40.910, longitude: 29.210),
-                CLLocationCoordinate2D(latitude: 40.910, longitude: 29.200)
-            ]
-            let polygon = MKPolygon(coordinates: coords, count: coords.count)
-            polygon.title = region.name
-            return polygon
-        } else if region.name == "Koşuyolu" {
-            let coords = [
-                CLLocationCoordinate2D(latitude: 41.000, longitude: 29.050),
-                CLLocationCoordinate2D(latitude: 41.000, longitude: 29.060),
-                CLLocationCoordinate2D(latitude: 41.010, longitude: 29.060),
-                CLLocationCoordinate2D(latitude: 41.010, longitude: 29.050)
-            ]
-            let polygon = MKPolygon(coordinates: coords, count: coords.count)
-            polygon.title = region.name
-            return polygon
-        }
-        return nil
-    }
-    
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: MapView
-        init(_ parent: MapView) {
-            self.parent = parent
-        }
+        init(_ parent: MapView) { self.parent = parent }
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let polygon = overlay as? MKPolygon {
+            if let polygon = overlay as? NamedPolygon, let name = polygon.name,
+               let region = parent.regions.first(where: { $0.name == name }) {
                 let renderer = MKPolygonRenderer(polygon: polygon)
-                if let region = parent.regions.first(where: { $0.name == polygon.title }) {
-                    renderer.fillColor = UIColor(hex: region.colorHex).withAlphaComponent(0.5)
-                } else {
-                    renderer.fillColor = UIColor.gray.withAlphaComponent(0.3)
-                }
+                renderer.fillColor = UIColor(hex: region.colorHex).withAlphaComponent(0.5)
                 renderer.strokeColor = UIColor.black
                 renderer.lineWidth = 1
                 return renderer
             }
             return MKOverlayRenderer(overlay: overlay)
         }
-        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-            // Not used for polygons
-        }
         func mapView(_ mapView: MKMapView, didSelect overlay: MKOverlay) {
-            if let polygon = overlay as? MKPolygon, let name = polygon.title {
-                if let region = parent.regions.first(where: { $0.name == name }) {
-                    parent.selectedRegion = region
-                }
+            if let polygon = overlay as? NamedPolygon, let name = polygon.name,
+               let region = parent.regions.first(where: { $0.name == name }) {
+                parent.selectedRegion = region
             }
+        }
+    }
+}
+
+// MARK: - GeoJSON Decoding
+struct GeoJSON: Codable {
+    let features: [Feature]
+    struct Feature: Codable {
+        let properties: Properties
+        let geometry: Geometry
+        struct Properties: Codable {
+            let name: String
+            let district: String
+            let city: String
+        }
+        struct Geometry: Codable {
+            let coordinates: [[[Double]]]
         }
     }
 }
