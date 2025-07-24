@@ -10,6 +10,8 @@ struct ContentView: View {
     )
     @State private var regions: [Region] = []
     @State private var polygons: [NamedPolygon] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String? = nil
     
     var filteredRegions: [Region] {
         if searchText.isEmpty { return regions }
@@ -31,8 +33,17 @@ struct ContentView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding([.leading, .trailing])
                 Spacer()
-                MapView(polygons: polygons, regions: filteredRegions, selectedRegion: $selectedRegion, mapRegion: $mapRegion)
-                    .frame(height: 350)
+                if isLoading {
+                    ProgressView()
+                        .frame(height: 350)
+                } else if let errorMessage = errorMessage {
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .frame(height: 350)
+                } else {
+                    MapView(polygons: polygons, regions: filteredRegions, selectedRegion: $selectedRegion, mapRegion: $mapRegion)
+                        .frame(height: 350)
+                }
                 Spacer()
             }
             .sheet(item: $selectedRegion) { region in
@@ -40,37 +51,48 @@ struct ContentView: View {
             }
             .navigationBarHidden(true)
             .onAppear {
-                loadRegionsAndPolygons()
+                loadData()
             }
         }
     }
     
-    func loadRegionsAndPolygons() {
-        // GeoJSON'dan polygonları oku
-        if let url = Bundle.main.url(forResource: "regions", withExtension: "geojson"),
-           let data = try? Data(contentsOf: url),
-           let geo = try? JSONDecoder().decode(GeoJSON.self, from: data) {
-            var tempPolygons: [NamedPolygon] = []
-            var tempRegions: [Region] = []
-            for feature in geo.features {
-                guard let coords = feature.geometry.coordinates.first else { continue }
-                let polygonCoords = coords.map { CLLocationCoordinate2D(latitude: $0[1], longitude: $0[0]) }
-                let polygon = NamedPolygon(coordinates: polygonCoords, count: polygonCoords.count)
-                polygon.name = feature.properties.name
-                tempPolygons.append(polygon)
-                // Örnek skor ve haberler (ileride API'den gelecek)
-                let score = feature.properties.name == "Gümüşpınar" ? 68 : 90
-                let news: [NewsItem] = feature.properties.name == "Gümüşpınar" ? [
-                    NewsItem(title: "Gümüşpınar’da silahlı çatışma paniği", date: "2025-07-10", severity: "high", link: nil),
-                    NewsItem(title: "İstanbul Kartal’da hırsızlık artışı", date: "2025-06-30", severity: "medium", link: nil)
-                ] : [
-                    NewsItem(title: "Koşuyolu’nda huzurlu yaz akşamı", date: "2025-07-01", severity: "low", link: nil)
-                ]
-                let region = Region(name: feature.properties.name, city: feature.properties.city, district: feature.properties.district, score: score, news: news)
-                tempRegions.append(region)
+    func loadData() {
+        isLoading = true
+        errorMessage = nil
+        ApiService.shared.fetchRegions { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let regions):
+                    self.regions = regions
+                    loadPolygons(for: regions)
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
             }
-            self.polygons = tempPolygons
-            self.regions = tempRegions
+        }
+    }
+    
+    func loadPolygons(for regions: [Region]) {
+        ApiService.shared.fetchGeoJSON { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let geo):
+                    var tempPolygons: [NamedPolygon] = []
+                    for feature in geo.features {
+                        guard let coords = feature.geometry.coordinates.first else { continue }
+                        let polygonCoords = coords.map { CLLocationCoordinate2D(latitude: $0[1], longitude: $0[0]) }
+                        let polygon = NamedPolygon(coordinates: polygonCoords, count: polygonCoords.count)
+                        polygon.name = feature.properties.name
+                        tempPolygons.append(polygon)
+                    }
+                    self.polygons = tempPolygons
+                    self.isLoading = false
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }
         }
     }
 }
