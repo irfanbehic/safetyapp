@@ -1,0 +1,13 @@
+"app_title" = "SafeMap";
+"search_placeholder" = "Şehir, ilçe veya mahalle ara";
+"score" = "Güvenlik Skoru";
+"news" = "Haberler";
+"details" = "Detay";
+"region" = "Bölge";
+"city" = "Şehir";
+"district" = "İlçe";
+"neighborhood" = "Mahalle";
+"very_unsafe" = "Çok Güvensiz";
+"medium_risk" = "Orta Riskli";
+"safe" = "Güvenli";
+"very_safe" = "Çok Güvenli";

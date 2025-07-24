@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Gümüşpınar", "district": "Kartal", "city": "İstanbul" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[29.200, 40.900], [29.210, 40.900], [29.210, 40.910], [29.200, 40.910], [29.200, 40.900]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Koşuyolu", "district": "Kadıköy", "city": "İstanbul" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[29.050, 41.000], [29.060, 41.000], [29.060, 41.010], [29.050, 41.010], [29.050, 41.000]]]
+      }
+    }
+  ]
+}
