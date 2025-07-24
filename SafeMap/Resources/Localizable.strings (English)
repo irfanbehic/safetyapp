@@ -1,0 +1,13 @@
+"app_title" = "SafeMap";
+"search_placeholder" = "Search city, district or neighborhood";
+"score" = "Safety Score";
+"news" = "News";
+"details" = "Details";
+"region" = "Region";
+"city" = "City";
+"district" = "District";
+"neighborhood" = "Neighborhood";
+"very_unsafe" = "Very Unsafe";
+"medium_risk" = "Medium Risk";
+"safe" = "Safe";
+"very_safe" = "Very Safe";

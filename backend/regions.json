@@ -1,0 +1,36 @@
+[
+  {
+    "region": "Gümüşpınar, Kartal, İstanbul",
+    "name": "Gümüşpınar",
+    "city": "İstanbul",
+    "district": "Kartal",
+    "score": 68,
+    "news": [
+      {
+        "title": "Gümüşpınar’da silahlı çatışma paniği",
+        "date": "2025-07-10",
+        "severity": "high",
+        "link": "https://haberlink.com/1"
+      },
+      {
+        "title": "İstanbul Kartal’da hırsızlık artışı",
+        "date": "2025-06-30",
+        "severity": "medium"
+      }
+    ]
+  },
+  {
+    "region": "Koşuyolu, Kadıköy, İstanbul",
+    "name": "Koşuyolu",
+    "city": "İstanbul",
+    "district": "Kadıköy",
+    "score": 90,
+    "news": [
+      {
+        "title": "Koşuyolu’nda huzurlu yaz akşamı",
+        "date": "2025-07-01",
+        "severity": "low"
+      }
+    ]
+  }
+]
